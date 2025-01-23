@@ -1,0 +1,75 @@
+version: '3'
+services:
+
+    #PHP Service
+    fpm:
+        build:
+            context: ./php-fpm/
+            dockerfile: Dockerfile
+        restart: unless-stopped
+        tty: true
+        ports:
+            - "5555:3000"
+        environment:
+            SERVICE_NAME: app
+            SERVICE_TAGS: dev
+        working_dir: /var/www
+        volumes:
+            - ../src:/var/www
+            - ./php-fpm/local.ini:/usr/local/etc/php/conf.d/local.ini
+        networks:
+            - testovoe-network
+    
+    #MySQL Service
+    mysql:
+        build:
+            context: ./mariadb
+            args:
+                - http_proxy
+                - https_proxy
+                - no_proxy
+                - MARIADB_VERSION=10.8.2
+        volumes:
+            - ./storage/mariadb:/var/lib/mysql
+            - ./logs/mariadb:/var/log/mysql/
+        restart: always
+        tty: true
+        expose:
+            - "3306"
+        ports:
+            - "5557:3306"
+        environment:
+            MYSQL_DATABASE: testovoe
+            MYSQL_USER: root
+            MYSQL_PASSWORD: secret
+            MYSQL_ROOT_PASSWORD: secret
+        networks:
+            - testovoe-network
+
+    ## phpMyAdmin ###########################################
+    phpmyadmin:
+        build:
+            context: ./phpmyadmin
+            dockerfile: Dockerfile
+        environment:
+            - PMA_ARBITRARY=1
+            - PMA_HOST=mysql
+            - PMA_PORT=3306
+            - MYSQL_USER=root
+            - MYSQL_PASSWORD=secret
+            - MYSQL_ROOT_PASSWORD=secret
+            - UPLOAD_LIMIT=1073741824
+        ports:
+            - "5556:80"
+        depends_on:
+            - mysql
+        links:
+            - mysql:mysql
+        restart: always
+        networks:
+            - testovoe-network
+
+#Docker Networks
+networks:
+    testovoe-network:
+        driver: bridge
